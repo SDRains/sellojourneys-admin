@@ -1,4 +1,4 @@
-import NavbarComponent from "@/pages/components/NavbarComponent"
+import NavbarComponent from "@/components/NavbarComponent"
 import { GetAllActiveLocations } from "@/lib/hasura/queries/Locations"
 import { useQuery } from "@apollo/client/react"
 import { useState } from "react"
@@ -199,11 +199,12 @@ function LocationDetailsModal({ location, isOpen, onClose }: LocationDetailsProp
                                         <img
                                             alt={`${location.name} stamp`}
                                             src={`https://questica.s3.us-east-1.amazonaws.com/stamps/${location.stamp.stamp_image}`}
-                                            className="w-16 h-16 bg-gray-100 object-cover border-2 border-gray-200"
+                                            className="w-16 h-16 bg-gray-100 object-cover border-2 border-gray-200 cursor-pointer"
                                             onError={(e) => {
                                                 const target = e.target as HTMLImageElement
                                                 target.src = '/placeholder-stamp.jpg'
                                             }}
+                                            onClick={() => window.open(`https://questica.s3.us-east-1.amazonaws.com/stamps/${location.stamp.stamp_image}`)}
                                         />
                                     </div>
                                 </div>
