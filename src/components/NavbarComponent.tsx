@@ -1,5 +1,5 @@
 import { Disclosure, DisclosureButton, DisclosurePanel, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
-import { Bars3Icon, BellIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 
 const navigation = [
     { name: 'Dashboard', href: '/', current: true },
@@ -35,8 +35,8 @@ export default function NavbarComponent({activeTab}: navbarProps) {
                         <div className="flex shrink-0 items-center">
                             <img
                                 alt="Your Company"
-                                src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
-                                className="h-8 w-auto"
+                                src="/sello_globe_icon.png"
+                                className="h-8 w-auto rounded-lg object-cover"
                             />
                         </div>
                         <div className="hidden sm:ml-6 sm:block">
