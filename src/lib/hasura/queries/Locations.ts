@@ -8,6 +8,9 @@ export const GetAllActiveLocations = gql`
         hero_image
         city
         state
+        latitude
+        longitude
+        geofence_radius
         stamp {
           stamp_image
         }

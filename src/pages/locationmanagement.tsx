@@ -1,6 +1,6 @@
 import NavbarComponent from "@/components/NavbarComponent"
 import { GetAllActiveLocations } from "@/lib/hasura/queries/Locations"
-import { SetLocationToInactive } from "@/lib/hasura/mutations/Locations";
+import { SetLocationToInactive, UpdateLocationGeofenceRadius, UpdateLocationLatLong } from "@/lib/hasura/mutations/Locations";
 import {useMutation, useQuery} from "@apollo/client/react"
 import { useState } from "react"
 import { Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
@@ -15,6 +15,9 @@ interface Location {
     stamp: {
         stamp_image: string
     }
+    latitude: string
+    longitude: string
+    geofence_radius: number
 }
 
 interface LocationsData {
@@ -146,6 +149,36 @@ interface LocationDetailsProps {
 
 function LocationDetailsModal({ location, isOpen, onClose }: LocationDetailsProps) {
     const [setToInactive] = useMutation(SetLocationToInactive)
+    const [updateGeofence] = useMutation(UpdateLocationGeofenceRadius)
+    const [updateLatLong] = useMutation(UpdateLocationLatLong)
+    const [isEditingLocation, setIsEditingLocation] = useState(false)
+    const [locationGeofenceRadius, setLocationGeofenceRadius] = useState(location.geofence_radius)
+    const [locationLatLong, setLocationLatLong] = useState(`${location.latitude}, ${location.longitude}`)
+    const [errorMessage, setErrorMessage] = useState('')
+
+    async function handleGeofenceUpdate() {
+        await updateGeofence({ variables: { location: location.id, radius: locationGeofenceRadius}})
+    }
+
+    function truncateCoordinate(coord: string): number {
+        const dotIndex = coord.indexOf('.')
+        if (dotIndex === -1) return parseFloat(coord)
+        return parseFloat(coord.slice(0, dotIndex + 5))
+    }
+
+    async function handleLatLongUpdate() {
+        const latLong = locationLatLong.split(', ')
+        if (latLong.length === 2) {
+            const latitude = truncateCoordinate(latLong[0].trim())
+            const longitude = truncateCoordinate(latLong[1].trim())
+            console.log(latitude, longitude)
+            const { data, error } = await updateLatLong({variables: { location: location.id, latitude, longitude }})
+            console.log('DATA', data)
+            console.log('ERRORS', error)
+        } else {
+            setErrorMessage('Latitude longitude mismatch')
+        }
+    }
 
     return (
         <Dialog open={isOpen} onClose={onClose} className="relative z-10">
@@ -161,79 +194,147 @@ function LocationDetailsModal({ location, isOpen, onClose }: LocationDetailsProp
                         className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-lg sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95"
                     >
                         <div>
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900">
-                                    {location.name}
-                                </h3>
-                                <button
-                                    onClick={onClose}
-                                    className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-                                >
-                                    <span className="sr-only">Close</span>
-                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
+                            {isEditingLocation ? (
+                                <div className='space-y-6'>
+                                    <h3 className="text-lg font-semibold text-gray-900">
+                                        {location.name}
+                                    </h3>
 
-                            <div className="space-y-4">
-                                <div>
-                                    <img
-                                        alt={`${location.name} hero image`}
-                                        src={`https://questica.s3.us-east-1.amazonaws.com/location_images/${location.hero_image}`}
-                                        className="w-full h-auto rounded-lg bg-gray-100 object-cover"
-                                        onError={(e) => {
-                                            const target = e.target as HTMLImageElement
-                                            target.src = '/placeholder-location.jpg'
-                                        }}
-                                    />
-                                </div>
+                                    {errorMessage !== '' && (<p className='text-sm text-red-600 font-semibold py-4'>{errorMessage}</p>)}
 
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-500">Location</p>
-                                        <p className="text-lg font-medium text-gray-900">
-                                            {location.city}, {location.state}
-                                        </p>
+                                    <div className='mt-4 border-t border-neutral-300 border-dashed pt-2'>
+                                        <p>Latitude & Longitude</p>
+                                        <div className='grid grid-cols-4 gap-2 mt-1'>
+                                            <div className='col-span-3'>
+                                                <input
+                                                    id="radius"
+                                                    name="radius"
+                                                    type="text"
+                                                    placeholder={locationLatLong}
+                                                    onChange={(e) => {
+                                                        setLocationLatLong(e.target.value)
+                                                    }}
+                                                    className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                                                />
+                                            </div>
+
+                                            <div className='col-span-1'>
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {await handleLatLongUpdate()}}
+                                                    className="inline-flex justify-center rounded-md bg-white w-full py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 cursor-pointer"
+                                                >
+                                                    Save
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex-shrink-0">
-                                        <p className="text-sm text-gray-500 mb-1">Stamp</p>
-                                        <img
-                                            alt={`${location.name} stamp`}
-                                            src={`https://questica.s3.us-east-1.amazonaws.com/stamps/${location.stamp.stamp_image}`}
-                                            className="w-16 h-16 bg-gray-100 object-cover border-2 border-gray-200 cursor-pointer"
-                                            onError={(e) => {
-                                                const target = e.target as HTMLImageElement
-                                                target.src = '/placeholder-stamp.jpg'
-                                            }}
-                                            onClick={() => window.open(`https://questica.s3.us-east-1.amazonaws.com/stamps/${location.stamp.stamp_image}`)}
-                                        />
+
+                                    <div className='mt-4 border-t border-neutral-300 border-dashed pt-2'>
+                                        <p>Geofence Radius</p>
+                                        <div className='grid grid-cols-4 gap-2 mt-1'>
+                                            <div className='col-span-3'>
+                                                <input
+                                                    id="radius"
+                                                    name="radius"
+                                                    type="number"
+                                                    placeholder={String(locationGeofenceRadius)}
+                                                    onChange={(e) => {
+                                                        setLocationGeofenceRadius(Number(e.target.value))
+                                                    }}
+                                                    className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                                                />
+                                            </div>
+
+                                            <div className='col-span-1'>
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {await handleGeofenceUpdate()}}
+                                                    className="inline-flex justify-center rounded-md bg-white w-full py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 cursor-pointer"
+                                                >
+                                                    Save
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className='mt-4 border-t border-neutral-300 border-dashed pt-2'>
-                                    <p className="text-sm text-gray-500">
-                                        Stamp Image Name
-                                    </p>
-                                    <p className="text-lg font-medium text-gray-900">
-                                        {location.stamp.stamp_image.slice(0, -4)}
-                                    </p>
-                                </div>
-
-                                <div className='mt-4 border-t border-neutral-300 border-dashed pt-2'>
-                                    <div className='w-fit'>
-                                        <div
-                                            className='bg-red-600 hover:bg-red-600/80 text-white py-2 px-8 font-semibold rounded-lg cursor-pointer text-center'
-                                            onClick={async () => {
-                                                await setToInactive({ variables: { location: location.id}})
-                                                onClose()
-                                            }}
-                                        >
-                                            <p>Set to Inactive</p>
+                                    <div className='mt-4 border-t border-neutral-300 border-dashed pt-2'>
+                                        <div className='w-fit'>
+                                            <div
+                                                className='bg-red-600 hover:bg-red-600/80 text-white py-2 px-8 font-semibold rounded-lg cursor-pointer text-center'
+                                                onClick={async () => {
+                                                    await setToInactive({ variables: { location: location.id}})
+                                                    onClose()
+                                                }}
+                                            >
+                                                <p>Set to Inactive</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            {location.name}
+                                        </h3>
+                                        <button
+                                            onClick={onClose}
+                                            className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                                        >
+                                            <span className="sr-only">Close</span>
+                                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <img
+                                                alt={`${location.name} hero image`}
+                                                src={`https://questica.s3.us-east-1.amazonaws.com/location_images/${location.hero_image}`}
+                                                className="w-full h-auto rounded-lg bg-gray-100 object-cover"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement
+                                                    target.src = '/placeholder-location.jpg'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm text-gray-500">Location</p>
+                                                <p className="text-lg font-medium text-gray-900">
+                                                    {location.city}, {location.state}
+                                                </p>
+                                            </div>
+                                            <div className="flex-shrink-0">
+                                                <p className="text-sm text-gray-500 mb-1">Stamp</p>
+                                                <img
+                                                    alt={`${location.name} stamp`}
+                                                    src={`https://questica.s3.us-east-1.amazonaws.com/stamps/${location.stamp.stamp_image}`}
+                                                    className="w-16 h-16 bg-gray-100 object-cover border-2 border-gray-200 cursor-pointer"
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement
+                                                        target.src = '/placeholder-stamp.jpg'
+                                                    }}
+                                                    onClick={() => window.open(`https://questica.s3.us-east-1.amazonaws.com/stamps/${location.stamp.stamp_image}`)}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className='mt-4 border-t border-neutral-300 border-dashed pt-2'>
+                                            <p className="text-sm text-gray-500">
+                                                Stamp Image Name
+                                            </p>
+                                            <p className="text-lg font-medium text-gray-900">
+                                                {location.stamp.stamp_image.slice(0, -4)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="mt-6 flex justify-end space-x-3">
                                 <button
@@ -243,12 +344,15 @@ function LocationDetailsModal({ location, isOpen, onClose }: LocationDetailsProp
                                 >
                                     Close
                                 </button>
-                                {/*<button*/}
-                                {/*    type="button"*/}
-                                {/*    className="inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 cursor-pointer"*/}
-                                {/*>*/}
-                                {/*    Edit Location*/}
-                                {/*</button>*/}
+                                <button
+                                    type="button"
+                                    className="inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 cursor-pointer"
+                                    onClick={() => {
+                                        setIsEditingLocation(!isEditingLocation)
+                                    }}
+                                >
+                                    {isEditingLocation ? 'Save Edits' : 'Edit Location'}
+                                </button>
                             </div>
                         </div>
                     </DialogPanel>
