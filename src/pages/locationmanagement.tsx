@@ -1,20 +1,20 @@
 import NavbarComponent from "@/components/NavbarComponent"
 import { GetAllActiveLocations } from "@/lib/hasura/queries/Locations"
-import { useQuery } from "@apollo/client/react"
+import { SetLocationToInactive } from "@/lib/hasura/mutations/Locations";
+import {useMutation, useQuery} from "@apollo/client/react"
 import { useState } from "react"
 import { Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 
 // TypeScript interfaces based on your GraphQL query
-interface Stamp {
-    stamp_image: string
-}
-
 interface Location {
+    id: string
     name: string
     hero_image: string
     city: string
     state: string
-    stamp: Stamp
+    stamp: {
+        stamp_image: string
+    }
 }
 
 interface LocationsData {
@@ -145,6 +145,8 @@ interface LocationDetailsProps {
 }
 
 function LocationDetailsModal({ location, isOpen, onClose }: LocationDetailsProps) {
+    const [setToInactive] = useMutation(SetLocationToInactive)
+
     return (
         <Dialog open={isOpen} onClose={onClose} className="relative z-10">
             <DialogBackdrop
@@ -217,6 +219,20 @@ function LocationDetailsModal({ location, isOpen, onClose }: LocationDetailsProp
                                         {location.stamp.stamp_image.slice(0, -4)}
                                     </p>
                                 </div>
+
+                                <div className='mt-4 border-t border-neutral-300 border-dashed pt-2'>
+                                    <div className='w-fit'>
+                                        <div
+                                            className='bg-red-600 hover:bg-red-600/80 text-white py-2 px-8 font-semibold rounded-lg cursor-pointer text-center'
+                                            onClick={async () => {
+                                                await setToInactive({ variables: { location: location.id}})
+                                                onClose()
+                                            }}
+                                        >
+                                            <p>Set to Inactive</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="mt-6 flex justify-end space-x-3">
@@ -227,12 +243,12 @@ function LocationDetailsModal({ location, isOpen, onClose }: LocationDetailsProp
                                 >
                                     Close
                                 </button>
-                                <button
-                                    type="button"
-                                    className="inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 cursor-pointer"
-                                >
-                                    Edit Location
-                                </button>
+                                {/*<button*/}
+                                {/*    type="button"*/}
+                                {/*    className="inline-flex justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 cursor-pointer"*/}
+                                {/*>*/}
+                                {/*    Edit Location*/}
+                                {/*</button>*/}
                             </div>
                         </div>
                     </DialogPanel>
